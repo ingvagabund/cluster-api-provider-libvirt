@@ -16,9 +16,6 @@ For running the libvirt actuator with Fedora 28 Cloud images.
    ```
    Host libvirtactuator 147.75.96.139
    Hostname 147.75.96.139
-   ControlPersist 10m
-   ControlMaster auto
-   ControlPath /tmp/%r@%h:%p
    User root
    StrictHostKeyChecking no
    PasswordAuthentication no
@@ -102,6 +99,29 @@ $ sudo kubectl get nodes
 NAME                   STATUS    ROLES     AGE       VERSION
 fedora.example.local   Ready     master    17m       v1.11.3
 ```
+
+#### How run the `kubectl get nodes` from your laptop
+
+1. Get private ip address of the master node (e.g. `192.168.122.6`)
+1. Tunnel to the master guest (port `22` for pulling the kubeconfig, port `8443` for querying apiserver):
+   ```sh
+   $ sudo ssh -L 8443:192.168.122.51:8443 -L 22:192.168.122.51:22 -i /tmp/packet_id_rsa root@147.75.96.109
+   ```
+1. Pull kubeconfig from the master guest node:
+   ```sh
+   $ ssh -i cmd/libvirt-actuator/resources/guest.pem fedora@127.0.0.1 'sudo cat /etc/kubernetes/admin.conf' > kubeconfig
+   ```
+1. Modify the kubeconfig:
+   ```sh
+   $ export KUBECONFIG=$PWD/kubeconfig
+   $ kubectl config set-cluster kubernetes --server=https://127.0.0.1:8443
+   ```
+1. List nodes:
+   ```sh
+   $ kubectl get nodes
+   NAME             STATUS    ROLES     AGE       VERSION
+   192.168.122.51   Ready     master    14m       v1.11.3
+   ```
 
 ### Test if libvirt instance exists based on machine manifest
 

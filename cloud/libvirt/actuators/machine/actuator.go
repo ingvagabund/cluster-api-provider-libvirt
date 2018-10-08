@@ -131,6 +131,48 @@ func (a *Actuator) Update(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 	return nil
 }
 
+// LibvirtInstance is approximation of libvirt domain so invokers can
+// get basic info about the domain without need to free the domain.
+type LibvirtInstance struct {
+	// IP addresses
+	NodeAddresses []corev1.NodeAddress
+}
+
+func (a *Actuator) Describe(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (*LibvirtInstance, error) {
+	glog.Infof("Describing machine %v for cluster %v.", machine.Name, cluster.Name)
+	errWrapper := errorWrapper{cluster: cluster, machine: machine}
+
+	machineProviderConfig, err := machineProviderConfigFromClusterAPIMachineSpec(&machine.Spec)
+	if err != nil {
+		return nil, errWrapper.WithLog(err, "error getting machineProviderConfig from spec")
+	}
+
+	client, err := libvirtutils.BuildClient(machineProviderConfig.URI)
+	if err != nil {
+		return nil, errWrapper.WithLog(err, "failed to build libvirt client")
+	}
+
+	defer client.Close()
+
+	dom, err := libvirtutils.LookupDomainByName(machine.Name, client)
+	if err != nil {
+		return nil, errWrapper.WithLog(err, "error looking up libvirt machine")
+	}
+
+	defer dom.Free()
+
+	addresses, err := libvirtutils.NodeAddresses(dom)
+	if err != nil {
+		return nil, err
+	}
+
+	instance := &LibvirtInstance{
+		NodeAddresses: addresses,
+	}
+
+	return instance, nil
+}
+
 // Exists test for the existance of a machine and is invoked by the Machine Controller
 func (a *Actuator) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (bool, error) {
 	glog.Infof("Checking if machine %v for cluster %v exists.", machine.Name, cluster.Name)

@@ -1,0 +1,42 @@
+---
+apiVersion: cluster.k8s.io/v1alpha1
+kind: MachineSet
+metadata:
+  name: default-worker-machineset
+  namespace: test
+  labels:
+    sigs.k8s.io/cluster-api-cluster: tb-asg-35
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      sigs.k8s.io/cluster-api-machineset: worker-machine
+      sigs.k8s.io/cluster-api-cluster: tb-asg-35
+  template:
+    metadata:
+      labels:
+        sigs.k8s.io/cluster-api-machineset: worker-machine
+        sigs.k8s.io/cluster-api-cluster: tb-asg-35
+    spec:
+      metadata:
+        labels:
+          node-role.kubernetes.io/compute: ""
+      providerConfig:
+        value:
+          apiVersion: libvirtproviderconfig/v1alpha1
+          kind: LibvirtMachineProviderConfig
+          domainMemory: 2048
+          domainVcpu: 2
+          cloudInit:
+            isoImagePath: /var/lib/libvirt/images/cloud-init.iso
+            userDataSecret: libvirt-actuator-node-user-data-secret
+          volume:
+            poolName: default
+            baseVolumeID: /var/lib/libvirt/images/fedora_base
+          networkInterfaceName: default
+          networkInterfaceAddress: 192.168.122.0/24
+          autostart: false
+          uri: {{ .LibvirtURI }}
+      versions:
+        kubelet: 1.10.1
+        controlPlane: 1.10.1
